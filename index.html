@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>二分法とニュートン法シミュレータ</title>
+    <link rel="stylesheet" href="style.css" />
+    <!-- <script src=""></script> -->
+  </head>
+  <body>
+    <div class="container">
+      <h1>二分法とニュートン法シミュレータ</h1>
+
+      <!-- 方程式選択 -->
+      <div class="section-panel">
+        <h2>1. 方程式の選択</h2>
+        <div class="equation-selection">
+          <label for="equation-select">方程式:</label>
+          <select id="equation-select">
+            <!-- Options will be populated by JavaScript -->
+          </select>
+          <div id="equation-display"></div>
+        </div>
+      </div>
+
+      <div class="controls-grid">
+        <!-- 二分法コントロール -->
+        <div class="section-panel">
+          <h2>2. 二分法</h2>
+          <div class="input-group">
+            <label for="bisection-a">初期区間 $a$:</label>
+            <input type="number" id="bisection-a" value="0" step="0.1" />
+          </div>
+          <div class="input-group">
+            <label for="bisection-b">初期区間 $b$:</label>
+            <input type="number" id="bisection-b" value="2" step="0.1" />
+          </div>
+          <div class="input-group">
+            <label for="bisection-tolerance">許容誤差:</label>
+            <input
+              type="number"
+              id="bisection-tolerance"
+              value="0.0001"
+              step="0.00001"
+            />
+          </div>
+          <div class="input-group">
+            <label for="bisection-max-iterations">最大繰り返し回数:</label>
+            <input
+              type="number"
+              id="bisection-max-iterations"
+              value="100"
+              step="1"
+            />
+          </div>
+          <div class="button-group">
+            <button id="run-bisection-btn" class="btn btn-primary">
+              二分法を実行
+            </button>
+            <button id="step-bisection-btn" class="btn btn-secondary">
+              ステップ実行
+            </button>
+          </div>
+          <div id="bisection-message" class="message-box hidden"></div>
+        </div>
+
+        <!-- ニュートン法コントロール -->
+        <div class="section-panel">
+          <h2>3. ニュートン法</h2>
+          <div class="input-group">
+            <label for="newton-x0">初期値 $x_0$:</label>
+            <input type="number" id="newton-x0" value="1.5" step="0.1" />
+          </div>
+          <div class="input-group">
+            <label for="newton-tolerance">許容誤差:</label>
+            <input
+              type="number"
+              id="newton-tolerance"
+              value="0.0001"
+              step="0.00001"
+            />
+          </div>
+          <div class="input-group">
+            <label for="newton-max-iterations">最大繰り返し回数:</label>
+            <input
+              type="number"
+              id="newton-max-iterations"
+              value="100"
+              step="1"
+            />
+          </div>
+          <div class="button-group">
+            <button id="run-newton-btn" class="btn btn-primary">
+              ニュートン法を実行
+            </button>
+            <button id="step-newton-btn" class="btn btn-secondary">
+              ステップ実行
+            </button>
+          </div>
+          <div id="newton-message" class="message-box hidden"></div>
+        </div>
+      </div>
+
+      <!-- グラフ表示エリア -->
+      <div class="section-panel">
+        <h2>4. 方程式のグラフ</h2>
+        <canvas id="equation-canvas" width="600" height="400"></canvas>
+        <div class="button-group" style="justify-content: center">
+          <button id="reset-graph-btn" class="btn btn-secondary">
+            グラフをリセット
+          </button>
+        </div>
+      </div>
+
+      <!-- 結果表示エリア -->
+      <div class="results-grid">
+        <!-- 二分法結果 -->
+        <div class="section-panel">
+          <h2>5. 二分法 結果</h2>
+          <div class="scrollable-results">
+            <table id="bisection-results-table" class="result-table">
+              <thead>
+                <tr>
+                  <th>Iteration</th>
+                  <th>$a$</th>
+                  <th>$b$</th>
+                  <th>$m$</th>
+                  <th>$f(m)$</th>
+                  <th>$b-a$</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Results will be populated by JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ニュートン法結果 -->
+        <div class="section-panel">
+          <h2>6. ニュートン法 結果</h2>
+          <div class="scrollable-results">
+            <table id="newton-results-table" class="result-table">
+              <thead>
+                <tr>
+                  <th>Iteration</th>
+                  <th>$x_k$</th>
+                  <th>$f(x_k)$</th>
+                  <th>$f'(x_k)$</th>
+                  <th>$x_{k+1}$</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Results will be populated by JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // DOM要素の取得
+      const equationSelect = document.getElementById("equation-select");
+      const equationCanvas = document.getElementById("equation-canvas");
+      const ctx = equationCanvas.getContext("2d");
+      const equationDisplay = document.getElementById("equation-display");
+
+      // 二分法関連要素
+      const bisectionA = document.getElementById("bisection-a");
+      const bisectionB = document.getElementById("bisection-b");
+      const bisectionTolerance = document.getElementById("bisection-tolerance");
+      const bisectionMaxIterations = document.getElementById(
+        "bisection-max-iterations"
+      );
+      const runBisectionBtn = document.getElementById("run-bisection-btn");
+      const stepBisectionBtn = document.getElementById("step-bisection-btn");
+      const bisectionResultsTableBody = document.querySelector(
+        "#bisection-results-table tbody"
+      );
+      const bisectionMessage = document.getElementById("bisection-message");
+
+      // ニュートン法関連要素
+      const newtonX0 = document.getElementById("newton-x0");
+      const newtonTolerance = document.getElementById("newton-tolerance");
+      const newtonMaxIterations = document.getElementById(
+        "newton-max-iterations"
+      );
+      const runNewtonBtn = document.getElementById("run-newton-btn");
+      const stepNewtonBtn = document.getElementById("step-newton-btn");
+      const newtonResultsTableBody = document.querySelector(
+        "#newton-results-table tbody"
+      );
+      const newtonMessage = document.getElementById("newton-message");
+
+      const resetGraphBtn = document.getElementById("reset-graph-btn");
+
+      // 方程式の定義
+      // 各方程式は、f(x) とその導関数 f_prime(x)、そしてグラフ表示のための推奨範囲 (rangeX, rangeY) を持つ
+      const equations = [
+        {
+          name: "f(x) = x^2 - 2",
+          f: (x) => x * x - 2,
+          f_prime: (x) => 2 * x,
+          rangeX: [-3, 3],
+          rangeY: [-5, 5],
+          bisectionDefaults: {
+            a: 0,
+            b: 2,
+            tolerance: 0.0001,
+            maxIterations: 100,
+          },
+          newtonDefaults: { x0: 1.5, tolerance: 0.0001, maxIterations: 100 },
+        },
+        {
+          name: "f(x) = x^3 - x - 1",
+          f: (x) => x * x * x - x - 1,
+          f_prime: (x) => 3 * x * x - 1,
+          rangeX: [-2, 2],
+          rangeY: [-5, 5],
+          bisectionDefaults: {
+            a: 1,
+            b: 2,
+            tolerance: 0.0001,
+            maxIterations: 100,
+          },
+          newtonDefaults: { x0: 1.5, tolerance: 0.0001, maxIterations: 100 },
+        },
+        {
+          name: "f(x) = cos(x) - x",
+          f: (x) => Math.cos(x) - x,
+          f_prime: (x) => -Math.sin(x) - 1,
+          rangeX: [-2, 2],
+          rangeY: [-3, 3],
+          bisectionDefaults: {
+            a: 0,
+            b: 1,
+            tolerance: 0.0001,
+            maxIterations: 100,
+          },
+          newtonDefaults: { x0: 0.5, tolerance: 0.0001, maxIterations: 100 },
+        },
+        {
+          name: "f(x) = e^x - 3x",
+          f: (x) => Math.exp(x) - 3 * x,
+          f_prime: (x) => Math.exp(x) - 3,
+          rangeX: [-1, 3],
+          rangeY: [-2, 5],
+          bisectionDefaults: {
+            a: 0,
+            b: 1,
+            tolerance: 0.0001,
+            maxIterations: 100,
+          },
+          newtonDefaults: { x0: 0.5, tolerance: 0.0001, maxIterations: 100 },
+        },
+      ];
+
+      let selectedEquation = equations[0]; // デフォルトで最初の方程式を選択
+      let bisectionAllSteps = []; // 二分法の全ステップのデータを保存
+      let newtonAllSteps = []; // ニュートン法の全ステップのデータを保存
+      let currentBisectionStepIndex = -1; // 現在の二分法ステップ実行インデックス (-1は未開始)
+      let currentNewtonStepIndex = -1; // 現在のニュートン法ステップ実行インデックス (-1は未開始)
+
+      // グラフ描画のためのスケールと原点情報
+      let currentScaleX, currentScaleY, currentOriginX, currentOriginY;
+
+      // ========================================
+      // 初期化処理
+      // ========================================
+
+      // 方程式選択ドロップダウンの初期化
+      function initializeEquationSelect() {
+        equationSelect.innerHTML = ""; // 既存のオプションをクリア
+        equations.forEach((eq, index) => {
+          const option = document.createElement("option");
+          option.value = index;
+          option.textContent = eq.name;
+          equationSelect.appendChild(option);
+        });
+        // デフォルトで最初の方程式を選択し、表示を更新
+        equationSelect.value = 0;
+        updateSelectedEquation(0);
+      }
+
+      // 選択された方程式の更新とデフォルト値の設定
+      function updateSelectedEquation(index) {
+        selectedEquation = equations[index];
+        equationDisplay.textContent = selectedEquation.name;
+
+        // 各アルゴリズムの入力フィールドにデフォルト値を設定
+        bisectionA.value = selectedEquation.bisectionDefaults.a;
+        bisectionB.value = selectedEquation.bisectionDefaults.b;
+        bisectionTolerance.value = selectedEquation.bisectionDefaults.tolerance;
+        bisectionMaxIterations.value =
+          selectedEquation.bisectionDefaults.maxIterations;
+
+        newtonX0.value = selectedEquation.newtonDefaults.x0;
+        newtonTolerance.value = selectedEquation.newtonDefaults.tolerance;
+        newtonMaxIterations.value =
+          selectedEquation.newtonDefaults.maxIterations;
+
+        resetSimulationState(); // 全シミュレーション状態をリセット
+        drawGraph(); // 新しい方程式でグラフを再描画
+      }
+
+      // 全シミュレーション状態（結果テーブル、メッセージ、ステップデータ）をリセットする
+      function resetSimulationState() {
+        bisectionResultsTableBody.innerHTML = "";
+        newtonResultsTableBody.innerHTML = "";
+        bisectionMessage.classList.add("hidden");
+        newtonMessage.classList.add("hidden");
+        bisectionMessage.classList.remove("success", "error");
+        newtonMessage.classList.remove("success", "error");
+
+        bisectionAllSteps = [];
+        newtonAllSteps = [];
+        currentBisectionStepIndex = -1;
+        currentNewtonStepIndex = -1;
+
+        // ボタンの状態をリセット
+        stepBisectionBtn.disabled = false;
+        stepNewtonBtn.disabled = false;
+      }
+
+      // ========================================
+      // グラフ描画関数
+      // ========================================
+
+      // キャンバスのクリア
+      function clearCanvas() {
+        ctx.clearRect(0, 0, equationCanvas.width, equationCanvas.height);
+      }
+
+      // 座標変換ヘルパー
+      // 論理座標 (x, y) をキャンバス座標 (canvasX, canvasY) に変換
+      function toCanvasCoords(x, y) {
+        return {
+          canvasX: currentOriginX + x * currentScaleX,
+          canvasY: currentOriginY - y * currentScaleY, // Y軸はキャンバスでは下向きが正のため反転
+        };
+      }
+
+      // 軸の描画
+      function drawAxes() {
+        ctx.strokeStyle = "#999";
+        ctx.lineWidth = 1;
+
+        // X軸
+        ctx.beginPath();
+        ctx.moveTo(0, currentOriginY);
+        ctx.lineTo(equationCanvas.width, currentOriginY);
+        ctx.stroke();
+
+        // Y軸
+        ctx.beginPath();
+        ctx.moveTo(currentOriginX, 0);
+        ctx.lineTo(currentOriginX, equationCanvas.height);
+        ctx.stroke();
+
+        // 目盛りとラベル (簡易版)
+        ctx.fillStyle = "#666";
+        ctx.font = "10px sans-serif";
+        const tickSize = 5;
+
+        // X軸目盛り
+        for (
+          let x = selectedEquation.rangeX[0];
+          x <= selectedEquation.rangeX[1];
+          x += 1
+        ) {
+          if (x === 0) continue;
+          const { canvasX } = toCanvasCoords(x, 0);
+          ctx.beginPath();
+          ctx.moveTo(canvasX, currentOriginY - tickSize / 2);
+          ctx.lineTo(canvasX, currentOriginY + tickSize / 2);
+          ctx.stroke();
+          ctx.fillText(x.toString(), canvasX - 5, currentOriginY + 15);
+        }
+
+        // Y軸目盛り
+        for (
+          let y = selectedEquation.rangeY[0];
+          y <= selectedEquation.rangeY[1];
+          y += 1
+        ) {
+          if (y === 0) continue;
+          const { canvasY } = toCanvasCoords(0, y);
+          ctx.beginPath();
+          ctx.moveTo(currentOriginX - tickSize / 2, canvasY);
+          ctx.lineTo(currentOriginX + tickSize / 2, canvasY);
+          ctx.stroke();
+          ctx.fillText(y.toString(), currentOriginX + 10, canvasY + 5);
+        }
+        ctx.fillText("0", currentOriginX - 10, currentOriginY + 15); // 原点
+      }
+
+      // 関数のプロット
+      function plotFunction(f) {
+        ctx.strokeStyle = "#3498db"; // 青
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        const step =
+          (selectedEquation.rangeX[1] - selectedEquation.rangeX[0]) /
+          (equationCanvas.width / 2); // 細かさを調整
+
+        for (let i = 0; i <= equationCanvas.width; i++) {
+          const x = (i - currentOriginX) / currentScaleX;
+          const y = f(x);
+          const { canvasX, canvasY } = toCanvasCoords(x, y);
+
+          if (i === 0) {
+            ctx.moveTo(canvasX, canvasY);
+          } else {
+            ctx.lineTo(canvasX, canvasY);
+          }
+        }
+        ctx.stroke();
+      }
+
+      // 二分法のステップを描画
+      function drawBisectionStep(a, b, m, f_m) {
+        // 区間 [a, b] を描画
+        ctx.strokeStyle = "#27ae60"; // 緑
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        const { canvasX: canvasA } = toCanvasCoords(a, 0);
+        const { canvasX: canvasB } = toCanvasCoords(b, 0);
+        ctx.moveTo(canvasA, currentOriginY);
+        ctx.lineTo(canvasB, currentOriginY);
+        ctx.stroke();
+
+        // 中点 m を描画
+        ctx.fillStyle = "#e74c3c"; // 赤
+        const { canvasX: canvasM, canvasY: canvasFm } = toCanvasCoords(m, f_m);
+        ctx.beginPath();
+        ctx.arc(canvasM, canvasFm, 5, 0, 2 * Math.PI); // f(m) の点
+        ctx.fill();
+
+        // 中点 m のX軸上の位置
+        ctx.beginPath();
+        ctx.arc(canvasM, currentOriginY, 4, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // m から f(m) への垂直線
+        ctx.strokeStyle = "#e74c3c";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]); // 破線
+        ctx.beginPath();
+        ctx.moveTo(canvasM, currentOriginY);
+        ctx.lineTo(canvasM, canvasFm);
+        ctx.stroke();
+        ctx.setLineDash([]); // 破線をリセット
+      }
+
+      // ニュートン法のステップを描画
+      function drawNewtonStep(x_k, f_x_k, f_prime_x_k, next_x) {
+        // 現在の点 (x_k, f(x_k)) を描画
+        ctx.fillStyle = "#8e44ad"; // 紫
+        const { canvasX: canvasXk, canvasY: canvasFxk } = toCanvasCoords(
+          x_k,
+          f_x_k
+        );
+        ctx.beginPath();
+        ctx.arc(canvasXk, canvasFxk, 5, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // X軸上の現在の点
+        ctx.beginPath();
+        ctx.arc(canvasXk, currentOriginY, 4, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // 接線を描画
+        ctx.strokeStyle = "#8e44ad"; // 紫
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // 接線の式: y - f(x_k) = f'(x_k) * (x - x_k)
+        // グラフの端から端まで描画するために、X軸の範囲を考慮
+        const plotRangeX =
+          selectedEquation.rangeX[1] - selectedEquation.rangeX[0];
+        const x1 = x_k - plotRangeX * 2; // 描画範囲を広げる
+        const y1 = f_x_k + f_prime_x_k * (x1 - x_k);
+        const x2 = x_k + plotRangeX * 2; // 描画範囲を広げる
+        const y2 = f_x_k + f_prime_x_k * (x2 - x_k);
+
+        const { canvasX: cX1, canvasY: cY1 } = toCanvasCoords(x1, y1);
+        const { canvasX: cX2, canvasY: cY2 } = toCanvasCoords(x2, y2);
+        ctx.moveTo(cX1, cY1);
+        ctx.lineTo(cX2, cY2);
+        ctx.stroke();
+
+        // 次の近似値 (x_{k+1}) を描画 (接線がX軸と交差する点)
+        ctx.fillStyle = "#e74c3c"; // 赤
+        const { canvasX: canvasNextX } = toCanvasCoords(next_x, 0);
+        ctx.beginPath();
+        ctx.arc(canvasNextX, currentOriginY, 5, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // (x_k, f(x_k)) から X軸上の x_k への垂直線
+        ctx.strokeStyle = "#8e44ad";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]); // 破線
+        ctx.beginPath();
+        ctx.moveTo(canvasXk, currentOriginY);
+        ctx.lineTo(canvasXk, canvasFxk);
+        ctx.stroke();
+        ctx.setLineDash([]); // 破線をリセット
+      }
+
+      // グラフ全体を描画する関数
+      function drawGraph() {
+        clearCanvas();
+
+        const width = equationCanvas.width;
+        const height = equationCanvas.height;
+
+        const rangeX = selectedEquation.rangeX[1] - selectedEquation.rangeX[0];
+        const rangeY = selectedEquation.rangeY[1] - selectedEquation.rangeY[0];
+
+        // スケール計算
+        currentScaleX = width / rangeX;
+        currentScaleY = height / rangeY;
+
+        // 原点位置計算 (キャンバスの左上からのピクセル値)
+        currentOriginX = -selectedEquation.rangeX[0] * currentScaleX;
+        currentOriginY = selectedEquation.rangeY[1] * currentScaleY;
+
+        drawAxes();
+        plotFunction(selectedEquation.f);
+
+        // 現在のステップ実行中のアルゴリズムの描画
+        if (
+          currentBisectionStepIndex !== -1 &&
+          currentBisectionStepIndex < bisectionAllSteps.length
+        ) {
+          const step = bisectionAllSteps[currentBisectionStepIndex];
+          drawBisectionStep(step.a, step.b, step.m, step.fm);
+        } else if (
+          currentNewtonStepIndex !== -1 &&
+          currentNewtonStepIndex < newtonAllSteps.length
+        ) {
+          const step = newtonAllSteps[currentNewtonStepIndex];
+          drawNewtonStep(step.xk, step.fxk, step.f_prime_xk, step.next_x);
+        }
+      }
+
+      // ========================================
+      // 二分法アルゴリズム (全ステップを計算して保存)
+      // ========================================
+
+      function calculateAllBisectionSteps(a, b, tolerance, maxIterations) {
+        bisectionAllSteps = []; // 全ステップをリセット
+        bisectionMessage.classList.add("hidden");
+        bisectionMessage.classList.remove("success", "error");
+
+        if (selectedEquation.f(a) * selectedEquation.f(b) >= 0) {
+          bisectionMessage.textContent =
+            "エラー: 初期区間 [a, b] で f(a) と f(b) の符号が異なります。解が区間内に存在しない可能性があります。";
+          bisectionMessage.classList.remove("hidden");
+          bisectionMessage.classList.add("error");
+          return false;
+        }
+
+        let iteration = 0;
+        let currentA = a;
+        let currentB = b;
+        let m, fm;
+
+        while (iteration < maxIterations) {
+          m = (currentA + currentB) / 2;
+          fm = selectedEquation.f(m);
+
+          bisectionAllSteps.push({
+            iteration: iteration + 1,
+            a: currentA,
+            b: currentB,
+            m: m,
+            fm: fm,
+            diff: Math.abs(currentB - currentA),
+          });
+
+          if (
+            Math.abs(fm) < tolerance ||
+            Math.abs(currentB - currentA) < tolerance
+          ) {
+            bisectionMessage.textContent = `二分法: ${
+              iteration + 1
+            } ステップで解が収束しました。近似解は ${m.toFixed(6)} です。`;
+            bisectionMessage.classList.remove("hidden");
+            bisectionMessage.classList.add("success");
+            return true; // 収束
+          }
+
+          if (selectedEquation.f(currentA) * fm < 0) {
+            currentB = m;
+          } else {
+            currentA = m;
+          }
+          iteration++;
+        }
+
+        // 最大繰り返し回数に達した場合
+        bisectionMessage.textContent = `二分法: 最大繰り返し回数 (${maxIterations}) に達しました。現在の近似解は ${m.toFixed(
+          6
+        )} です。`;
+        bisectionMessage.classList.remove("hidden");
+        bisectionMessage.classList.add("error"); // 収束しなかった場合はエラー扱い
+        return false;
+      }
+
+      // 二分法のステップをテーブルに追加
+      function addBisectionStepToTable(step) {
+        const row = bisectionResultsTableBody.insertRow();
+        row.insertCell().textContent = step.iteration;
+        row.insertCell().textContent = step.a.toFixed(6);
+        row.insertCell().textContent = step.b.toFixed(6);
+        row.insertCell().textContent = step.m.toFixed(6);
+        row.insertCell().textContent = step.fm.toExponential(3); // 指数表記
+        row.insertCell().textContent = step.diff.toFixed(6);
+        bisectionResultsTableBody.scrollTop =
+          bisectionResultsTableBody.scrollHeight; // スクロール
+      }
+
+      // ========================================
+      // ニュートン法アルゴリズム (全ステップを計算して保存)
+      // ========================================
+
+      function calculateAllNewtonSteps(x0, tolerance, maxIterations) {
+        newtonAllSteps = []; // 全ステップをリセット
+        newtonMessage.classList.add("hidden");
+        newtonMessage.classList.remove("success", "error");
+
+        let iteration = 0;
+        let xk = x0;
+        let fxk, f_prime_xk, next_x;
+
+        while (iteration < maxIterations) {
+          fxk = selectedEquation.f(xk);
+          f_prime_xk = selectedEquation.f_prime(xk);
+
+          if (Math.abs(f_prime_xk) < 1e-9) {
+            // 導関数が0に近い場合
+            newtonMessage.textContent = `エラー: ニュートン法で導関数が0に近くなりました (f'(${xk.toFixed(
+              6
+            )}) = ${f_prime_xk.toExponential(
+              3
+            )})。収束しない可能性があります。`;
+            newtonMessage.classList.remove("hidden");
+            newtonMessage.classList.add("error");
+            return false;
+          }
+
+          next_x = xk - fxk / f_prime_xk;
+
+          newtonAllSteps.push({
+            iteration: iteration + 1,
+            xk: xk,
+            fxk: fxk,
+            f_prime_xk: f_prime_xk,
+            next_x: next_x,
+          });
+
+          if (
+            Math.abs(selectedEquation.f(next_x)) < tolerance ||
+            Math.abs(next_x - xk) < tolerance
+          ) {
+            newtonMessage.textContent = `ニュートン法: ${
+              iteration + 1
+            } ステップで解が収束しました。近似解は ${next_x.toFixed(6)} です。`;
+            newtonMessage.classList.remove("hidden");
+            newtonMessage.classList.add("success");
+            return true; // 収束
+          }
+
+          xk = next_x;
+          iteration++;
+        }
+
+        // 最大繰り返し回数に達した場合
+        newtonMessage.textContent = `ニュートン法: 最大繰り返し回数 (${maxIterations}) に達しました。現在の近似解は ${xk.toFixed(
+          6
+        )} です。`;
+        newtonMessage.classList.remove("hidden");
+        newtonMessage.classList.add("error"); // 収束しなかった場合はエラー扱い
+        return false;
+      }
+
+      // ニュートン法のステップをテーブルに追加
+      function addNewtonStepToTable(step) {
+        const row = newtonResultsTableBody.insertRow();
+        row.insertCell().textContent = step.iteration;
+        row.insertCell().textContent = step.xk.toFixed(6);
+        row.insertCell().textContent = step.fxk.toExponential(3);
+        row.insertCell().textContent = step.f_prime_xk.toExponential(3);
+        row.insertCell().textContent = step.next_x.toFixed(6);
+        newtonResultsTableBody.scrollTop = newtonResultsTableBody.scrollHeight; // スクロール
+      }
+
+      // ========================================
+      // イベントリスナー
+      // ========================================
+
+      // ページロード時に初期化
+      window.onload = () => {
+        initializeEquationSelect();
+        drawGraph(); // 初回グラフ描画
+      };
+
+      // 方程式選択が変更されたら
+      equationSelect.addEventListener("change", (event) => {
+        updateSelectedEquation(parseInt(event.target.value));
+      });
+
+      // 二分法実行ボタン
+      runBisectionBtn.addEventListener("click", () => {
+        resetSimulationState(); // 全てをリセット
+        const a = parseFloat(bisectionA.value);
+        const b = parseFloat(bisectionB.value);
+        const tolerance = parseFloat(bisectionTolerance.value);
+        const maxIterations = parseInt(bisectionMaxIterations.value);
+
+        if (calculateAllBisectionSteps(a, b, tolerance, maxIterations)) {
+          // 全ステップをテーブルに追加
+          bisectionAllSteps.forEach((step) => addBisectionStepToTable(step));
+        }
+        currentBisectionStepIndex =
+          bisectionAllSteps.length > 0 ? bisectionAllSteps.length - 1 : -1; // 最終ステップを表示
+        drawGraph();
+      });
+
+      // 二分法ステップ実行ボタン
+      stepBisectionBtn.addEventListener("click", () => {
+        // 他のアルゴリズムの状態をリセット
+        newtonResultsTableBody.innerHTML = "";
+        newtonMessage.classList.add("hidden");
+        newtonMessage.classList.remove("success", "error");
+        newtonAllSteps = [];
+        currentNewtonStepIndex = -1;
+        stepNewtonBtn.disabled = false; // ニュートン法のステップボタンを有効にする
+
+        const a = parseFloat(bisectionA.value);
+        const b = parseFloat(bisectionB.value);
+        const tolerance = parseFloat(bisectionTolerance.value);
+        const maxIterations = parseInt(bisectionMaxIterations.value);
+
+        if (currentBisectionStepIndex === -1) {
+          // 初回ステップ実行時
+          bisectionResultsTableBody.innerHTML = ""; // テーブルをクリア
+          bisectionMessage.classList.add("hidden");
+          bisectionMessage.classList.remove("success", "error");
+
+          if (!calculateAllBisectionSteps(a, b, tolerance, maxIterations)) {
+            // エラーで計算が中断した場合
+            stepBisectionBtn.disabled = true; // ステップ実行を無効化
+            return;
+          }
+          currentBisectionStepIndex = 0; // 最初のステップから開始
+        } else {
+          currentBisectionStepIndex++; // 次のステップへ
+        }
+
+        if (currentBisectionStepIndex < bisectionAllSteps.length) {
+          const step = bisectionAllSteps[currentBisectionStepIndex];
+          addBisectionStepToTable(step); // 現在のステップをテーブルに追加
+          drawGraph(); // グラフを更新
+        } else {
+          bisectionMessage.textContent = `二分法: 全ステップが完了しました。近似解は ${bisectionAllSteps[
+            bisectionAllSteps.length - 1
+          ].m.toFixed(6)} です。`;
+          bisectionMessage.classList.remove("hidden");
+          bisectionMessage.classList.add("success");
+          stepBisectionBtn.disabled = true; // 全ステップ完了でボタンを無効化
+        }
+      });
+
+      // ニュートン法実行ボタン
+      runNewtonBtn.addEventListener("click", () => {
+        resetSimulationState(); // 全てをリセット
+        const x0 = parseFloat(newtonX0.value);
+        const tolerance = parseFloat(newtonTolerance.value);
+        const maxIterations = parseInt(newtonMaxIterations.value);
+
+        if (calculateAllNewtonSteps(x0, tolerance, maxIterations)) {
+          // 全ステップをテーブルに追加
+          newtonAllSteps.forEach((step) => addNewtonStepToTable(step));
+        }
+        currentNewtonStepIndex =
+          newtonAllSteps.length > 0 ? newtonAllSteps.length - 1 : -1; // 最終ステップを表示
+        drawGraph();
+      });
+
+      // ニュートン法ステップ実行ボタン
+      stepNewtonBtn.addEventListener("click", () => {
+        // 他のアルゴリズムの状態をリセット
+        bisectionResultsTableBody.innerHTML = "";
+        bisectionMessage.classList.add("hidden");
+        bisectionMessage.classList.remove("success", "error");
+        bisectionAllSteps = [];
+        currentBisectionStepIndex = -1;
+        stepBisectionBtn.disabled = false; // 二分法のステップボタンを有効にする
+
+        const x0 = parseFloat(newtonX0.value);
+        const tolerance = parseFloat(newtonTolerance.value);
+        const maxIterations = parseInt(newtonMaxIterations.value);
+
+        if (currentNewtonStepIndex === -1) {
+          // 初回ステップ実行時
+          newtonResultsTableBody.innerHTML = ""; // テーブルをクリア
+          newtonMessage.classList.add("hidden");
+          newtonMessage.classList.remove("success", "error");
+
+          if (!calculateAllNewtonSteps(x0, tolerance, maxIterations)) {
+            // エラーで計算が中断した場合
+            stepNewtonBtn.disabled = true; // ステップ実行を無効化
+            return;
+          }
+          currentNewtonStepIndex = 0; // 最初のステップから開始
+        } else {
+          currentNewtonStepIndex++; // 次のステップへ
+        }
+
+        if (currentNewtonStepIndex < newtonAllSteps.length) {
+          const step = newtonAllSteps[currentNewtonStepIndex];
+          addNewtonStepToTable(step); // 現在のステップをテーブルに追加
+          drawGraph(); // グラフを更新
+        } else {
+          newtonMessage.textContent = `ニュートン法: 全ステップが完了しました。近似解は ${newtonAllSteps[
+            newtonAllSteps.length - 1
+          ].next_x.toFixed(6)} です。`;
+          newtonMessage.classList.remove("hidden");
+          newtonMessage.classList.add("success");
+          stepNewtonBtn.disabled = true; // 全ステップ完了でボタンを無効化
+        }
+      });
+
+      // グラフリセットボタン
+      resetGraphBtn.addEventListener("click", () => {
+        resetSimulationState();
+        drawGraph();
+      });
+
+      // ウィンドウのリサイズイベントでキャンバスを再描画
+      window.addEventListener("resize", () => {
+        // レスポンシブ対応のため、キャンバスの幅を親要素に合わせる
+        const parentWidth = equationCanvas.parentElement.clientWidth;
+        // 最大幅と最小幅を設定し、適切なアスペクト比を維持
+        const desiredWidth = Math.min(600, parentWidth - 40); // 最大600px、左右20pxのパディングを考慮
+        equationCanvas.width = desiredWidth;
+        equationCanvas.height = desiredWidth * (2 / 3); // 2:3 のアスペクト比を維持
+        drawGraph();
+      });
+
+      // 初期ロード時にリサイズイベントをトリガーしてキャンバスサイズを調整
+      window.dispatchEvent(new Event("resize"));
+    </script>
+  </body>
+</html>
